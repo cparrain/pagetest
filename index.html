@@ -31,67 +31,79 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-
 <script>
-// URL de tu GeoJSON raw (reemplaza con tu Gist raw)
 const geojsonURL = 'https://gist.githubusercontent.com/tuusuario/abcdef1234567890/raw/tuarchivo.geojson';
 
-// Crear mapa
 const map = L.map('map').setView([43.33, -3.05], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap'
+    attribution: '© OpenStreetMap'
 }).addTo(map);
 
-// Guardamos layers de Leaflet para poder centrar después
-let featureLayers = [];
+// Guardamos layers por ID único
+let featureLayers = {};
 
-// Cargar GeoJSON
 fetch(geojsonURL)
-  .then(response => response.json())
-  .then(data => {
-    // Agregar GeoJSON al mapa
-    L.geoJSON(data, {
-      style: { color: 'blue', weight: 4 },
-      onEachFeature: function(feature, layer) {
-        if (feature.properties) {
-          const popupContent = `
-            <b>${feature.properties.title}</b><br>
-            ${feature.properties.type}<br>
-            <a href="${feature.properties.link}" target="_blank">Abrir enlace</a>
-          `;
-          layer.bindPopup(popupContent);
-          featureLayers.push({layer: layer, properties: feature.properties});
+    .then(response => response.json())
+    .then(data => {
 
-          // Agregar fila a la tabla
-          const linkHTML = `<a href="${feature.properties.link}" target="_blank">${feature.properties.link}</a>`;
-          $('#propertiesTable tbody').append(`
-            <tr data-index="${featureLayers.length - 1}">
-              <td>${feature.properties.title || ''}</td>
-              <td>${feature.properties.type || ''}</td>
-              <td>${linkHTML}</td>
-            </tr>
-          `);
-        }
-      }
-    }).addTo(map);
+        L.geoJSON(data, {
+            style: { color: 'blue', weight: 4 },
 
-    // Inicializar DataTable
-    const table = $('#propertiesTable').DataTable();
+            onEachFeature: function (feature, layer) {
 
-    // Evento click en fila: centra el mapa en la feature correspondiente
-    $('#propertiesTable tbody').on('click', 'tr', function() {
-      const index = $(this).data('index');
-      const fl = featureLayers[index];
-      if (fl) {
-        const bounds = fl.layer.getBounds ? fl.layer.getBounds() : L.latLngBounds(fl.layer.getLatLng());
-        map.fitBounds(bounds, {maxZoom: 16});
-        fl.layer.openPopup();
-      }
-    });
+                const id = L.stamp(layer); // ID único de Leaflet
 
-  })
-  .catch(err => console.error('Error cargando GeoJSON:', err));
+                const popupContent = `
+                    <b>${feature.properties.title}</b><br>
+                    ${feature.properties.type}<br>
+                    <a href="${feature.properties.link}" target="_blank">Abrir enlace</a>
+                `;
+
+                layer.bindPopup(popupContent);
+
+                featureLayers[id] = layer;
+
+                // Agregar fila a la tabla
+                $('#propertiesTable tbody').append(`
+                    <tr data-id="${id}">
+                        <td>${feature.properties.title || ''}</td>
+                        <td>${feature.properties.type || ''}</td>
+                        <td><a href="${feature.properties.link}" target="_blank">${feature.properties.link}</a></td>
+                    </tr>
+                `);
+            }
+        }).addTo(map);
+
+        // Inicializar DataTable
+        const table = $('#propertiesTable').DataTable();
+
+        // Click en fila
+        $('#propertiesTable tbody').on('click', 'tr', function () {
+
+            const id = $(this).data('id');
+            const layer = featureLayers[id];
+
+            if (!layer) return;
+
+            let bounds;
+
+            if (layer.getBounds) {
+                // LineString o Polygon
+                bounds = layer.getBounds();
+            } else if (layer.getLatLng) {
+                // Point
+                const latlng = layer.getLatLng();
+                bounds = L.latLngBounds(latlng, latlng);
+            }
+
+            map.fitBounds(bounds.pad(0.5), { maxZoom: 17 });
+            layer.openPopup();
+        });
+
+    })
+    .catch(err => console.error('Error cargando GeoJSON:', err));
 </script>
+
 
 </body>
 </html>
