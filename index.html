@@ -2,95 +2,79 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>GeoJSON con popups clicables</title>
+  <title>GeoJSON con Popups y Tabla</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <style>
-    #map { height: 600px; width: 100%; }
+    #map { height: 500px; width: 100%; margin-bottom: 20px; }
+    table { width: 100%; }
   </style>
 </head>
 <body>
+
+<h2>Mapa</h2>
 <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-// Crear mapa centrado en tu área
-const map = L.map('map').setView([43.33, -3.05], 12);
+<h2>Tabla de propiedades</h2>
+<table id="propertiesTable">
+  <thead>
+    <tr>
+      <th>title</th>
+      <th>type</th>
+      <th>link</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
-// Capa base OSM
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+<script>
+// URL de tu GeoJSON raw (puedes reemplazar con tu Gist raw)
+const geojsonURL = 'https://gist.githubusercontent.com/cparrain/2243f10726d1ff52f7aa57dd144310c5/raw/archivo.geojson';
+
+// Crear mapa
+const map = L.map('map').setView([43.33, -3.05], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap'
 }).addTo(map);
 
-// Tu GeoJSON con popups
-const geojsonData = {
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type":"Feature",
-      "properties":{
-        "title":"Prueba",
-        "link":"https://www.google.com",
-        "descripcion":"Línea de prueba"
-      },
-      "geometry":{
-        "type":"LineString",
-        "coordinates":[
-          [-3.05047,43.33857],
-          [-3.04803,43.34007]
-        ]
-      }
-    },
-    {
-      "type":"Feature",
-      "properties":{
-        "title":"2025-0350-RC",
-        "link":"https://www.google.com",
-        "descripcion":"MultiLineString de prueba"
-      },
-      "geometry":{
-        "type":"MultiLineString",
-        "coordinates":[
-          [[-2.935,43.262],[-2.93,43.265]],
-          [[-2.94,43.27],[-2.935,43.273]],
-          [[-2.95,43.26],[-2.945,43.263]],
-          [[-2.96,43.268],[-2.955,43.271]]
-        ]
-      }
-    },
-    {
-      "type":"Feature",
-      "properties":{
-        "title":"2025-0407-AV",
-        "link":"https://www.google.com",
-        "descripcion":"Otra línea de prueba"
-      },
-      "geometry":{
-        "type":"LineString",
-        "coordinates":[
-          [-2.96102,43.32135],
-          [-2.96103,43.32133],
-          [-2.96103,43.32133],
-          [-2.96104,43.32132]
-        ]
-      }
-    }
-  ]
-};
+// Cargar GeoJSON desde URL
+fetch(geojsonURL)
+  .then(response => response.json())
+  .then(data => {
+    // Agregar al mapa con popups
+    L.geoJSON(data, {
+      style: { color: 'blue', weight: 4 },
+      onEachFeature: function(feature, layer) {
+        if (feature.properties) {
+          const popupContent = `
+            <b>${feature.properties.title}</b><br>
+            ${feature.properties.type}<br>
+            <a href="${feature.properties.link}" target="_blank">Abrir enlace</a>
+          `;
+          layer.bindPopup(popupContent);
 
-// Función para mostrar popups clicables
-L.geoJSON(geojsonData, {
-  style: { color: 'blue', weight: 4 },
-  onEachFeature: function (feature, layer) {
-    if (feature.properties) {
-      const popupContent = `
-        <b>${feature.properties.title}</b><br>
-        ${feature.properties.descripcion}<br>
-        <a href="${feature.properties.link}" target="_blank">Abrir enlace</a>
-      `;
-      layer.bindPopup(popupContent);
-    }
-  }
-}).addTo(map);
+          // Llenar tabla
+          const linkHTML = `<a href="${feature.properties.link}" target="_blank">${feature.properties.link}</a>`;
+          $('#propertiesTable tbody').append(`
+            <tr>
+              <td>${feature.properties.title || ''}</td>
+              <td>${feature.properties.type || ''}</td>
+              <td>${linkHTML}</td>
+            </tr>
+          `);
+        }
+      }
+    }).addTo(map);
+
+    // Inicializar DataTable
+    $('#propertiesTable').DataTable();
+  })
+  .catch(err => console.error('Error cargando GeoJSON:', err));
 </script>
+
 </body>
 </html>
